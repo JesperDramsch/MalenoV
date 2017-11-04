@@ -2,12 +2,15 @@ import numpy as np
 import keras
 from keras.models import Sequential
 from keras.models import Model
+from keras.layers import Input
 from keras.layers import Dense, Activation, Flatten, Dropout
 from keras.layers import Conv3D
 from keras.callbacks import EarlyStopping
 from keras.callbacks import TensorBoard
 from keras.callbacks import LearningRateScheduler
 from keras.layers.normalization import BatchNormalization
+
+from keras.applications.resnet50 import ResNet50
 
 # Make the network structure and outline, and train it
 def train_model(segy_obj,class_array,num_classes,cube_incr,inp_res = np.float64,\
@@ -31,16 +34,20 @@ def train_model(segy_obj,class_array,num_classes,cube_incr,inp_res = np.float64,
     # write_location: desired location on the disk for the model to be saved
 
     # Check if the user wants to make a new model, or train an existing input model
+	cube_size = 2*cube_incr+1
+	input_shape = (cube_size,cube_size,cube_size,num_channels)
+	data_format="channels_last"
+	opt = keras.optimizers.adam(lr=0.001)
+	
     if keras_model == None:
         # Begin setting up model architecture and parameters
-        cube_size = 2*cube_incr+1
 
         #  This model is loosely built after that of Anders Waldeland (5 Convolutional layers
         #  and 2 fully connected layers with rectified linear and softmax activations)
         # We have added drop out and batch normalization our selves, and experimented with multi-prediction
         model = Sequential()
-        model.add(Conv3D(50, (5, 5, 5), padding='same', input_shape=(cube_size,cube_size,cube_size,num_channels), strides=(4, 4, 4), \
-                         data_format="channels_last",name = 'conv_layer1'))
+        model.add(Conv3D(50, (5, 5, 5), padding='same', input_shape=input_shape, strides=(4, 4, 4), \
+                         data_format=data_format,name = 'conv_layer1'))
         model.add(BatchNormalization())
         model.add(Activation('relu'))
         model.add(Conv3D(50, (3, 3, 3), strides=(2, 2, 2), padding = 'same',name = 'conv_layer2'))
@@ -67,14 +74,30 @@ def train_model(segy_obj,class_array,num_classes,cube_incr,inp_res = np.float64,
         model.add(BatchNormalization())
         model.add(Activation('softmax'))
 
-        # initiate the Adam optimizer with a given learning rate (Note that this is adapted later)
-        opt = keras.optimizers.adam(lr=0.001)
-
         # Compile the model with the desired loss, optimizer, and metric
         model.compile(loss='categorical_crossentropy',
                   optimizer=opt,
                   metrics=['accuracy'])
-    else:
+    elif keras_model == 'ResNet50':
+		input_tensor = Input(shape=input_shape)
+		base_model = ResNet50(input_tensor=input_tensor, weights=None, include_top=True)
+		
+		tail_model = base_model.output
+		tail_model = BatchNormalization()(tail_model)
+		
+		tail_model = Dense(10 ,name = 'attribute_layer', activation='relu')(tail_model)
+		tail_model = BatchNormalization()(tail_model)
+		tail_model = Dense(num_classes)(tail_model)
+		tail_model = BatchNormalization()(tail_model)
+        predictions = Activation('softmax')(tail_model)
+		
+		model = Model(inputs=base_model.input, outputs=predictions)
+		
+        # Compile the model with the desired loss, optimizer, and metric
+        model.compile(loss='categorical_crossentropy',
+                  optimizer=opt,
+                  metrics=['accuracy'])
+	else:
         # Define the model we are performing training on as the input model
         model = keras_model
 
