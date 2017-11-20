@@ -79,25 +79,25 @@ def train_model(segy_obj,class_array,num_classes,cube_incr,inp_res = np.float64,
                   optimizer=opt,
                   metrics=['accuracy'])
     elif keras_model == 'ResNet50':
-		input_tensor = Input(shape=input_shape)
-		base_model = ResNet50(input_tensor=input_tensor, weights=None, include_top=True)
-		
-		tail_model = base_model.output
-		tail_model = BatchNormalization()(tail_model)
-		
-		tail_model = Dense(10 ,name = 'attribute_layer', activation='relu')(tail_model)
-		tail_model = BatchNormalization()(tail_model)
-		tail_model = Dense(num_classes)(tail_model)
-		tail_model = BatchNormalization()(tail_model)
+        input_tensor = Input(shape=input_shape)
+        base_model = ResNet50(input_tensor=input_tensor, weights=None, include_top=True)
+        
+        tail_model = base_model.output
+        tail_model = BatchNormalization()(tail_model)
+        
+        tail_model = Dense(10 ,name = 'attribute_layer', activation='relu')(tail_model)
+        tail_model = BatchNormalization()(tail_model)
+        tail_model = Dense(num_classes)(tail_model)
+        tail_model = BatchNormalization()(tail_model)
         predictions = Activation('softmax')(tail_model)
-		
-		model = Model(inputs=base_model.input, outputs=predictions)
-		
+        
+        model = Model(inputs=base_model.input, outputs=predictions)
+        	
         # Compile the model with the desired loss, optimizer, and metric
         model.compile(loss='categorical_crossentropy',
-                  optimizer=opt,
-                  metrics=['accuracy'])
-	else:
+            optimizer=opt,
+            metrics=['accuracy'])
+    else:
         # Define the model we are performing training on as the input model
         model = keras_model
 
